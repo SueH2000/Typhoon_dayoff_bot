@@ -6,8 +6,7 @@ A minimal repository to showcase the LINE bot flow and the ML pipeline — with 
 - **Processing**: KNN impute (13 cols) → add typhoon meta features → MinMax scale (24 cols, ordered)
 - **Predicting**: RandomForest probability, messaged back with graded text
 
-> This repo intentionally stays **minimal** (no Docker, no CI, no extra scaffolding). Ask me if you want the deployment templates.
-
+> This repo intentionally stays **minimal** (no Docker, no CI, no extra scaffolding).
 ---
 
 ## Repo layout
