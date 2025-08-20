@@ -1,6 +1,5 @@
-# Typhoon Day-off Bot — Showcase
-
-A minimal repository to **showcase what you built** — the LINE bot flow and the ML pipeline — with a detailed explanation you can hand to reviewers/recruiters.
+# Typhoon Day-off Bot
+A minimal repository to showcase the LINE bot flow and the ML pipeline — with a detailed explanation.
 
 - **UI**: Region → City → Station quick replies in LINE (`src/linebot_typhoon.py`)
 - **Crawling**: Fetch live CWB O-A0003-001 station observations by name
@@ -26,10 +25,10 @@ typhoon-dayoff-bot-showcase/
 ```
 
 **Artifacts used at runtime**  
-Place these **next to the repo** or inside `models/`:
+Place these  inside `models/`:
 - `kNN_imputer.joblib`
 - `MMscaler.joblib`
-- `rf_model.joblib`
+- `rf_model.joblib` ##too large to upload
 
 `src/predict.py` can read paths from environment variables if you prefer, e.g.:
 ```
@@ -142,13 +141,6 @@ If you want, I can add a **Dockerfile** and a one-pager for one of these platfor
 
 ---
 
-## License & citation (optional)
-
-- If you want maximum adoption: **MIT**. If you want attribution carried in redistributions: **Apache-2.0** with a `NOTICE` file.
-- If you’d like a **“Cite this repository”** button on GitHub, add a simple `CITATION.cff` later.
-
----
-
 ## What to read first
 
 - `src/linebot_typhoon.py` — user interaction & CWB fetch path (the “crawling” step).
@@ -169,7 +161,7 @@ This repository uses **Apache-2.0** so that attribution is carried in redistribu
 - If you want to add headers to source files, use this template:
 
 ```python
-# Copyright 2025 [Your Name]
+# Copyright 2025 [Sue Hsiung]
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at http://www.apache.org/licenses/LICENSE-2.0
@@ -177,6 +169,3 @@ This repository uses **Apache-2.0** so that attribution is carried in redistribu
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
 ```
-
-> If you prefer a shorter license with broad reuse and optional citation, you can switch to MIT; however, its
-> attribution requirement is limited to preserving the copyright and license notice (no NOTICE file mechanism).
