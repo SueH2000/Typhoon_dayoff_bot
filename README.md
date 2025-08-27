@@ -150,6 +150,38 @@ python src/train_model.py \
 
 ---
 
+### Quick score a 1-row CSV
+
+Your CSV should have the predictor's expected columns (see the Feature contract / SCALER_COLS). Example usage:
+
+```python
+# score_csv.py
+import pandas as pd
+from src.predict import Predictor
+
+df = pd.read_csv('row.csv')      # 1 row with required columns
+proba = Predictor().predict_proba_dayoff(df)
+print(f"P(dayoff)= {proba:.3f}")
+```
+
+Run it (artifacts discovered under `models/` by default):
+```bash
+python score_csv.py
+```
+
+Or as a one-liner:
+```bash
+python - <<'PY'
+import pandas as pd
+from src.predict import Predictor
+df = pd.read_csv('row.csv')
+print(Predictor().predict_proba_dayoff(df))
+PY
+```
+
+Note: If your CSV lacks some columns, fill them before scoring or construct the row with helper functions (e.g., fetch station obs and merge typhoon meta, then pass to `Predictor`).
+
+
 ## Note on Heroku (free tier)
 
 Heroku’s legacy **free dynos are no longer available**. If your LINE bot used to run on Heroku’s free tier, you’ll need to move to another host or a paid plan.
