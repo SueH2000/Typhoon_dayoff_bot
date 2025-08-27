@@ -152,7 +152,7 @@ python src/train_model.py \
 
 ### Quick score a 1-row CSV
 
-Your CSV should have the predictor's expected columns (see the Feature contract / SCALER_COLS). Example usage:
+Your CSV should have the predictor's expected columns (see the Feature contract / SCALER_COLS). See `examples/row.csv` for a ready-to-use template. Example usage:
 
 ```python
 # score_csv.py
