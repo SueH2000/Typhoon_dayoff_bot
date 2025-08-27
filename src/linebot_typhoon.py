@@ -34,7 +34,6 @@ import pandas as pd
 from linebot.exceptions import InvalidSignatureError
 from linebot import LineBotApi, WebhookHandler
 from flask import Flask, request, abort
-from flask import Flask
 
 # Flask app: webhook receiver for LINE
 app = Flask(__name__)
@@ -851,19 +850,22 @@ def handle_message(event):
             df_get = get(locationName)  # 獲得天氣data
             data1 = get_datashow(locationName)
             # --- Processing: Imputation (if NaNs present) ---
-            # NOTE: If there are no NaNs, df_imputed is never assigned in original code.
-            #       (Kept intact to preserve behavior.)
+            df_imputed = df_get.copy()
             if df_get.isna().sum().sum() != 0:  # 判斷是否需要補值
-                kNN_imputer = joblib.load('kNN_imputer.joblib')
-                df_imputed = kNN_imputer.transform(df_get)
-                df_imputed = pd.DataFrame(df_imputed, columns = df_get.columns)
+                kNN_imputer = joblib.load(os.getenv('KNN_IMPUTER_PATH', 'models/kNN_imputer.joblib'))
+                imputed_values = kNN_imputer.transform(df_get)
+                df_imputed = pd.DataFrame(imputed_values, columns = df_get.columns)
             # --- Processing: Add Typhoon Meta (static placeholders) ---
             df_full = merge_typhoon_data(df_imputed)  # 合併
             # --- Processing: Scaling (MinMax) ---
-            MMscaler = joblib.load('MMscaler.joblib')
-            x = MMscaler.transform(df_full)
+            MMscaler = joblib.load(os.getenv('MINMAX_SCALER_PATH', 'models/MMscaler.joblib'))
+            try:
+                from src.predict import SCALER_COLS
+                x = MMscaler.transform(df_full[SCALER_COLS])
+            except Exception:
+                x = MMscaler.transform(df_full)
             # --- Predicting: RandomForest Proba ---
-            model = joblib.load('rf_model.joblib')
+            model = joblib.load(os.getenv('MODEL_PATH', 'models/rf_model.joblib'))
             prediction = model.predict_proba(x)
             dayoff_proba = prediction[0][1]*100
             # UI: graded messages by probability range
@@ -989,10 +991,10 @@ def handle_message(event):
                     )
 
             line_bot_api.reply_message(event.reply_token, message)
-        except:
-            line_bot_api.reply_message(event.reply_token, message)
+        except Exception:
+            line_bot_api.reply_message(event.reply_token, TextSendMessage(text='服務暫時出現問題，請稍後再試'))
     else:
-        line_bot_api.reply_message(event.reply_token, message)
+        line_bot_api.reply_message(event.reply_token, TextSendMessage(text='請從「北部/中部/南部/東部/外島」開始'))
 
 # ===== CRAWLING: Station Observation (ML features) =====
 def get(locationName):
@@ -1005,7 +1007,7 @@ def get(locationName):
     }
 
     url = url + urllib.parse.urlencode(params)
-    data = requests.get(url).json()
+    data = requests.get(url, timeout=10).json()
     stnInfo = data['records']['location'][0]
     weatherElement = data['records']['location'][0]['weatherElement']
     obs = {
@@ -1093,7 +1095,7 @@ def get_datashow(locationName):
     }
 
     url = url + urllib.parse.urlencode(params)
-    data1 = requests.get(url).json()
+    data1 = requests.get(url, timeout=10).json()
     data1 = pd.DataFrame(data1['records']['location'][0]['weatherElement']).T
     data1.columns = data1.loc['elementName',:]
     data1 = data1.drop('elementName', axis = 0)
