@@ -164,6 +164,7 @@ def main():
     parser.add_argument('--label', default='TmrDayoff', help="Which column to predict (default: TmrDayoff)" )
     parser.add_argument('--test-size', type=float, default=0.2, help='Test fraction for holdout (default: 0.2)')
     parser.add_argument('--output-dir', default='.', help='Where to write joblib artifacts and metrics')
+    parser.add_argument('--seed', type=int, default=42, help='Random seed for split/model (default: 42)')
     args = parser.parse_args()
 
     os.makedirs(args.output_dir, exist_ok=True)
@@ -176,7 +177,9 @@ def main():
 
     # 3) Split
     X_imp_train, X_imp_test, y_train, y_test = train_test_split(
-        X_imp, y, test_size=args.test_size, stratify=y, random_state=42
+        X_imp, y, test_size=args.test_size,
+        stratify=y if getattr(y, 'nunique', lambda: 2)() > 1 else None,
+        random_state=args.seed
     )
     # Important: we must apply the SAME row split to the scaler input matrix
     X_scl_train = df.loc[X_imp_train.index, SCALER_COLS].copy()
@@ -209,8 +212,8 @@ def main():
         min_samples_split=6,
         class_weight='balanced',
         criterion='gini',
-        max_features='auto',  # matches your artifact; in newer sklearn this maps to 'sqrt' for classification
-        random_state=None,    # matches your artifact (non-deterministic)
+        max_features='sqrt',  # modern sklearn replacement for 'auto' in classifiers
+        random_state=args.seed,
     )
     model.fit(X_train_scaled, y_train)
 
@@ -231,6 +234,26 @@ def main():
 
     with open(os.path.join(args.output_dir, 'rf_metrics_aligned.json'), 'w', encoding='utf-8') as f:
         json.dump(metrics, f, ensure_ascii=False, indent=2)
+
+    # Write metadata for reproducibility
+    try:
+        import platform, sklearn
+        meta = {
+            'imputer_columns': IMPUTER_COLS,
+            'scaler_columns': SCALER_COLS,
+            'label': args.label,
+            'seed': args.seed,
+            'versions': {
+                'python': platform.python_version(),
+                'pandas': pd.__version__,
+                'numpy': np.__version__,
+                'sklearn': sklearn.__version__,
+            }
+        }
+        with open(os.path.join(args.output_dir, 'artifacts_meta.json'), 'w', encoding='utf-8') as f:
+            json.dump(meta, f, ensure_ascii=False, indent=2)
+    except Exception:
+        pass
 
     # 8) Save artifacts with the **same filenames** your runtime expects
     joblib.dump(imputer, os.path.join(args.output_dir, 'kNN_imputer.joblib'))

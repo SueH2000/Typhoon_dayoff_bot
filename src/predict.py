@@ -24,12 +24,32 @@ SCALER_COLS = [
     'lat','lon','route_--','route_2','route_3'
 ]
 
-KNN_IMPUTER_PATH = os.getenv("KNN_IMPUTER_PATH", "kNN_imputer.joblib")
-MINMAX_SCALER_PATH = os.getenv("MINMAX_SCALER_PATH", "MMscaler.joblib")
-MODEL_PATH = os.getenv("MODEL_PATH", "rf_model.joblib")
+def _resolve_path(env_key: str, default_in_models: str, legacy_root: str) -> str:
+    """Resolve artifact path with backward-compatible fallback.
+    Order:
+      1) env var if set
+      2) default in models/ if exists
+      3) legacy root filename if exists
+    else return default in models/ (to produce a clear error later).
+    """
+    p = os.getenv(env_key)
+    if p:
+        return p
+    if os.path.exists(default_in_models):
+        return default_in_models
+    if os.path.exists(legacy_root):
+        return legacy_root
+    return default_in_models
+
+KNN_IMPUTER_PATH = _resolve_path("KNN_IMPUTER_PATH", "models/kNN_imputer.joblib", "kNN_imputer.joblib")
+MINMAX_SCALER_PATH = _resolve_path("MINMAX_SCALER_PATH", "models/MMscaler.joblib", "MMscaler.joblib")
+MODEL_PATH = _resolve_path("MODEL_PATH", "models/rf_model.joblib", "rf_model.joblib")
 
 class Predictor:
     def __init__(self):
+        for p in [KNN_IMPUTER_PATH, MINMAX_SCALER_PATH, MODEL_PATH]:
+            if not os.path.exists(p):
+                raise FileNotFoundError(f"Missing artifact: {p}. Set env vars KNN_IMPUTER_PATH, MINMAX_SCALER_PATH, MODEL_PATH or place files under models/.")
         self.imputer = joblib.load(KNN_IMPUTER_PATH)
         self.scaler = joblib.load(MINMAX_SCALER_PATH)
         self.model = joblib.load(MODEL_PATH)
