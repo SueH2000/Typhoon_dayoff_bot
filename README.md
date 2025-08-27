@@ -119,6 +119,37 @@ This writes:
 
 ---
 
+## Training and Artifacts
+
+- Flags (see `python src/train_model.py -h`):
+  - `--data PATH` (required)
+  - `--label NAME` default: `TmrDayoff`
+  - `--test-size FLOAT` default: `0.2`
+  - `--output-dir DIR` default: `.`
+  - `--seed INT` default: `42`
+
+- Outputs written to `--output-dir`:
+  - `kNN_imputer.joblib`
+  - `MMscaler.joblib`
+  - `rf_model.joblib`
+  - `rf_metrics_aligned.json` (holdout metrics)
+  - `artifacts_meta.json` (versions, seed, label, feature schema)
+
+- Predictor artifact discovery (`src/predict.py`):
+  - Defaults to `models/` if present
+  - Env overrides: `KNN_IMPUTER_PATH`, `MINMAX_SCALER_PATH`, `MODEL_PATH`
+
+- Example (write artifacts into `models/`):
+```bash
+python src/train_model.py \
+  --data /path/to/data_ver_4_DCT.xlsx \
+  --label TmrDayoff \
+  --output-dir models \
+  --seed 42
+```
+
+---
+
 ## Note on Heroku (free tier)
 
 Heroku’s legacy **free dynos are no longer available**. If your LINE bot used to run on Heroku’s free tier, you’ll need to move to another host or a paid plan.
