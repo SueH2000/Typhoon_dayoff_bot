@@ -29,11 +29,25 @@ import numpy as np
 import os
 import requests
 import json
-import urllib
 import pandas as pd
 from linebot.exceptions import InvalidSignatureError
 from linebot import LineBotApi, WebhookHandler
-from flask import Flask, request, abort
+from flask import Flask, request, abort, jsonify, render_template
+
+# Weather API settings (CWA, formerly CWB)
+# Keep defaults to make local testing easy; production should set these in env vars.
+WEATHER_API_BASE_URL = os.getenv('WEATHER_API_BASE_URL', 'https://opendata.cwa.gov.tw/api/v1/rest/datastore')
+WEATHER_DATASET_ID = os.getenv('WEATHER_DATASET_ID', 'O-A0003-001')
+WEATHER_API_KEY = os.getenv('CWA_API_KEY') or os.getenv('CWB_API_KEY') or 'CWB-5393733F-1F8E-4BD2-A358-0360AABEE6EB'
+WEATHER_API_TIMEOUT = int(os.getenv('WEATHER_API_TIMEOUT', '10'))
+WEATHER_API_FALLBACK_BASE_URLS = [
+    WEATHER_API_BASE_URL,
+    'https://opendata.cwa.gov.tw/api/v1/rest/datastore',
+    'https://opendata.cwb.gov.tw/api/v1/rest/datastore',
+]
+WEATHER_REQUIRED_DISPLAY_ELEMENTS = {'TEMP', '24R'}
+WEATHER_MODEL_CANDIDATE_ELEMENTS = {'ELEV', 'HUMD', 'D_TX', 'D_TN', 'TEMP', 'PRES', '24R', 'WDSD', 'WDIR', 'H_XD', 'H_FX'}
+WEATHER_MIN_MODEL_ELEMENTS = int(os.getenv('WEATHER_MIN_MODEL_ELEMENTS', '7'))
 
 # Flask app: webhook receiver for LINE
 app = Flask(__name__)
@@ -849,6 +863,9 @@ def handle_message(event):
             # --- Crawling (CWB API) ---
             df_get = get(locationName)  # 獲得天氣data
             data1 = get_datashow(locationName)
+            current_temp = str(get_display_weather_value(data1, 'TEMP', default='--'))
+            current_rain = str(get_display_weather_value(data1, '24R', default='--'))
+            current_weather = str(get_display_weather_value(data1, ('Weather', 'WeatherDescription', 'Wx', 'WTH'), default='資料暫缺'))
             # --- Processing: Imputation (if NaNs present) ---
             df_imputed = df_get.copy()
             if df_get.isna().sum().sum() != 0:  # 判斷是否需要補值
@@ -873,13 +890,13 @@ def handle_message(event):
                 try:
                     message = [
                         TextSendMessage(
-                            text = "目前氣溫" + data1.iat[0,3]+"度"
+                            text = "目前氣溫" + current_temp + "度"
                         ),
                         TextSendMessage(
-                            text = "累積雨量" + data1.iat[0,6]+"mm"
+                            text = "累積雨量" + current_rain + "mm"
                         ),
                         TextSendMessage(
-                            text = "天氣" + data1.iat[0,20]
+                            text = "天氣" + current_weather
                         ),
                         TextSendMessage(
                             text=f'明天放颱風假機率:{round(dayoff_proba, 1)}%\n超高機率放颱風假，祝您假期愉快！'
@@ -893,13 +910,13 @@ def handle_message(event):
                 try:
                     message = [
                         TextSendMessage(
-                            text = "目前氣溫" + data1.iat[0,3]+"度"
+                            text = "目前氣溫" + current_temp + "度"
                         ),
                         TextSendMessage(
-                            text = "累積雨量" + data1.iat[0,6]+"mm"
+                            text = "累積雨量" + current_rain + "mm"
                         ),
                         TextSendMessage(
-                            text = "天氣" + data1.iat[0,20]
+                            text = "天氣" + current_weather
                         ),
                         TextSendMessage(
                             text=f'明天放颱風假機率:{round(dayoff_proba, 1)}%\n高機率放颱風假，請做好準備！'
@@ -913,13 +930,13 @@ def handle_message(event):
                 try:
                     message = [
                         TextSendMessage(
-                            text = "目前氣溫" + data1.iat[0,3]+"度"
+                            text = "目前氣溫" + current_temp + "度"
                         ),
                         TextSendMessage(
-                            text = "累積雨量" + data1.iat[0,6]+"mm"
+                            text = "累積雨量" + current_rain + "mm"
                         ),
                         TextSendMessage(
-                            text = "天氣" + data1.iat[0,20]
+                            text = "天氣" + current_weather
                         ),
                         TextSendMessage(
                             text=f'明天放颱風假機率:{round(dayoff_proba, 1)}%\n可以期待一下颱風假！'
@@ -933,13 +950,13 @@ def handle_message(event):
                 try:
                     message = [
                         TextSendMessage(
-                            text = "目前氣溫" + data1.iat[0,3]+"度"
+                            text = "目前氣溫" + current_temp + "度"
                         ),
                         TextSendMessage(
-                            text = "累積雨量" + data1.iat[0,6]+"mm"
+                            text = "累積雨量" + current_rain + "mm"
                         ),
                         TextSendMessage(
-                            text = "天氣" + data1.iat[0,20]
+                            text = "天氣" + current_weather
                         ),
                         TextSendMessage(
                             text=f'明天放颱風假機率:{round(dayoff_proba, 1)}%\n預言大師也算不準明天到底會不會放颱風假...'
@@ -953,13 +970,13 @@ def handle_message(event):
                 try:
                     message = [
                         TextSendMessage(
-                            text = "目前氣溫" + data1.iat[0,3]+"度"
+                            text = "目前氣溫" + current_temp + "度"
                         ),
                         TextSendMessage(
-                            text = "累積雨量" + data1.iat[0,6]+"mm"
+                            text = "累積雨量" + current_rain + "mm"
                         ),
                         TextSendMessage(
-                            text = "天氣" + data1.iat[0,20]
+                            text = "天氣" + current_weather
                         ),
                         TextSendMessage(
                             text=f'明天放颱風假機率:{round(dayoff_proba, 1)}%\n明天不太可能放颱風假哦！'
@@ -973,13 +990,13 @@ def handle_message(event):
                 try:
                     message = [
                         TextSendMessage(
-                            text = "目前氣溫" + data1.iat[0,3]+"度"
+                            text = "目前氣溫" + current_temp + "度"
                         ),
                         TextSendMessage(
-                            text = "累積雨量" + data1.iat[0,6]+"mm"
+                            text = "累積雨量" + current_rain + "mm"
                         ),
                         TextSendMessage(
-                            text = "天氣" + data1.iat[0,20]
+                            text = "天氣" + current_weather
                         ),
                         TextSendMessage(
                             text=f'明天放颱風假機率:{round(dayoff_proba, 1)}%\n您還是別妄想颱風假了～～'
@@ -996,18 +1013,93 @@ def handle_message(event):
     else:
         line_bot_api.reply_message(event.reply_token, TextSendMessage(text='請從「北部/中部/南部/東部/外島」開始'))
 
+
+
+
+
+@app.route('/app/ui', methods=['GET'])
+def app_mobile_ui():
+    """Mobile-friendly UI page that consumes /app/locations and /app/predict APIs."""
+    return render_template('app_mobile.html')
+
+@app.route('/app/locations', methods=['GET'])
+def app_locations():
+    """Mobile-app helper endpoint: returns all supported station names."""
+    return jsonify({'ok': True, 'locations': locations})
+
+
+@app.route('/app/predict', methods=['GET'])
+def app_predict():
+    """Mobile-app endpoint: returns latest weather + dayoff probability by station name."""
+    location_name = request.args.get('locationName') or request.args.get('location')
+    if not location_name:
+        return jsonify({'ok': False, 'error': 'locationName is required'}), 400
+    if location_name not in locations:
+        return jsonify({'ok': False, 'error': f'Unsupported locationName: {location_name}'}), 400
+
+    try:
+        result = build_prediction_payload(location_name)
+        return jsonify({'ok': True, **result})
+    except Exception as exc:
+        return jsonify({'ok': False, 'error': str(exc)}), 500
+
+
+def build_prediction_payload(location_name):
+    """Shared prediction flow for mobile app: crawl -> impute -> merge -> scale -> predict."""
+    df_get = get(location_name)
+    display_df = get_datashow(location_name)
+    current_temp = str(get_display_weather_value(display_df, 'TEMP', default='--'))
+    current_rain = str(get_display_weather_value(display_df, '24R', default='--'))
+    current_weather = str(get_display_weather_value(display_df, ('Weather', 'WeatherDescription', 'Wx', 'WTH'), default='資料暫缺'))
+
+    df_imputed = df_get.copy()
+    if df_get.isna().sum().sum() != 0:
+        kNN_imputer = joblib.load(os.getenv('KNN_IMPUTER_PATH', 'models/kNN_imputer.joblib'))
+        imputed_values = kNN_imputer.transform(df_get)
+        df_imputed = pd.DataFrame(imputed_values, columns=df_get.columns)
+
+    df_full = merge_typhoon_data(df_imputed)
+    MMscaler = joblib.load(os.getenv('MINMAX_SCALER_PATH', 'models/MMscaler.joblib'))
+    try:
+        from src.predict import SCALER_COLS
+        x = MMscaler.transform(df_full[SCALER_COLS])
+    except Exception:
+        x = MMscaler.transform(df_full)
+
+    model = joblib.load(os.getenv('MODEL_PATH', 'models/rf_model.joblib'))
+    prediction = model.predict_proba(x)
+    dayoff_proba = float(prediction[0][1] * 100)
+
+    return {
+        'locationName': location_name,
+        'weather': {
+            'temperature_c': current_temp,
+            'rainfall_mm': current_rain,
+            'description': current_weather,
+        },
+        'dayoff_probability': round(dayoff_proba, 1),
+        'advice': get_dayoff_advice(dayoff_proba),
+    }
+
+
+def get_dayoff_advice(dayoff_proba):
+    """Map probability to the same user-facing advice text used in LINE replies."""
+    if dayoff_proba >= 90:
+        return '超高機率放颱風假，祝您假期愉快！'
+    if dayoff_proba >= 80:
+        return '高機率放颱風假，請做好準備！'
+    if dayoff_proba >= 60:
+        return '可以期待一下颱風假！'
+    if dayoff_proba >= 40:
+        return '預言大師也算不準明天到底會不會放颱風假...'
+    if dayoff_proba >= 20:
+        return '明天不太可能放颱風假哦！'
+    return '您還是別妄想颱風假了～～'
+
 # ===== CRAWLING: Station Observation (ML features) =====
 def get(locationName):
     """Fetch live observation from CWB and engineer ML features (RH %, wind/gust vectors). Returns 1-row DataFrame."""
-    url = 'https://opendata.cwb.gov.tw/api/v1/rest/datastore/O-A0003-001?'
-    params = {
-        'Authorization': 'CWB-5393733F-1F8E-4BD2-A358-0360AABEE6EB',
-        'format': 'JSON',
-        'locationName': locationName,
-    }
-
-    url = url + urllib.parse.urlencode(params)
-    data = requests.get(url, timeout=10).json()
+    data = fetch_station_observation(locationName)
     stnInfo = data['records']['location'][0]
     weatherElement = data['records']['location'][0]['weatherElement']
     obs = {
@@ -1037,7 +1129,9 @@ def get(locationName):
     }
     for i in range(len(weatherElement)):  ###########
         name = weatherElement[i]['elementName']
-        value = weatherElement[i]['elementValue']
+        value = parse_weather_element_value(weatherElement[i].get('elementValue'))
+        if value is None:
+            continue
         if name in name_mapping.keys():
             obs[name] = [float(value)]
             if float(value) < -90:
@@ -1086,20 +1180,133 @@ def get(locationName):
     return df
 # ===== CRAWLING: Human-readable display =====
 def get_datashow(locationName):
-    """Fetch human-readable CWB observation table for direct texting (e.g., temperature string)."""
-    url = 'https://opendata.cwb.gov.tw/api/v1/rest/datastore/O-A0003-001?'
+    """Fetch latest station observation table for direct texting (e.g., temperature/rain/weather)."""
+    payload = fetch_station_observation(locationName)
+    weather_elements = payload['records']['location'][0]['weatherElement']
+    normalized = {}
+    for item in weather_elements:
+        element_name = item.get('elementName')
+        normalized[element_name] = parse_weather_element_value(item.get('elementValue'))
+
+    # Keep a single-row DataFrame, so downstream text formatting stays simple and stable.
+    return pd.DataFrame([normalized])
+
+
+def fetch_station_observation(location_name):
+    """Call authorized weather endpoint and return one valid station payload.
+
+    Strategy for reliability:
+    1) Try configured endpoint first.
+    2) If that fails, fallback to official CWA/CWB domains.
+    This helps when one domain is blocked/migrating while the other still serves data.
+    """
     params = {
-        'Authorization': 'CWB-5393733F-1F8E-4BD2-A358-0360AABEE6EB', # NOTE: move to env var in production
+        'Authorization': WEATHER_API_KEY,
         'format': 'JSON',
-        'locationName': locationName,
+        'locationName': location_name,
     }
 
-    url = url + urllib.parse.urlencode(params)
-    data1 = requests.get(url, timeout=10).json()
-    data1 = pd.DataFrame(data1['records']['location'][0]['weatherElement']).T
-    data1.columns = data1.loc['elementName',:]
-    data1 = data1.drop('elementName', axis = 0)
-    return data1
+    last_error = None
+    for base_url in get_weather_api_base_urls():
+        endpoint = f"{base_url.rstrip('/')}/{WEATHER_DATASET_ID}"
+        try:
+            response = requests.get(endpoint, params=params, timeout=WEATHER_API_TIMEOUT)
+            response.raise_for_status()
+            payload = response.json()
+            validate_station_payload(payload, location_name)
+            return payload
+        except Exception as exc:
+            last_error = exc
+
+    raise ValueError(f"Failed to fetch weather data for {location_name}: {last_error}")
+
+
+def get_weather_api_base_urls():
+    """Return de-duplicated endpoint candidates in priority order."""
+    deduped = []
+    for base_url in WEATHER_API_FALLBACK_BASE_URLS:
+        clean = (base_url or '').strip()
+        if clean and clean not in deduped:
+            deduped.append(clean)
+    return deduped
+
+
+def validate_station_payload(payload, location_name):
+    """Validate weather API payload and raise clear error when data is unusable."""
+    success = payload.get('success')
+    # API can return string or boolean; both should be accepted.
+    if str(success).lower() == 'false':
+        raise ValueError(f"Weather API returned error: {payload.get('result', {})}")
+
+    locations = payload.get('records', {}).get('location')
+    if not locations:
+        raise ValueError(f"No weather station data found for location: {location_name}")
+
+    station = locations[0]
+    if 'lat' not in station or 'lon' not in station:
+        raise ValueError(f"Station coordinates missing for location: {location_name}")
+
+    available_elements = extract_available_element_names(station)
+    missing_display = sorted(WEATHER_REQUIRED_DISPLAY_ELEMENTS - available_elements)
+    if missing_display:
+        raise ValueError(
+            f"Missing required display weather elements {missing_display} for location: {location_name}"
+        )
+
+    model_element_count = len(available_elements & WEATHER_MODEL_CANDIDATE_ELEMENTS)
+    if model_element_count < WEATHER_MIN_MODEL_ELEMENTS:
+        raise ValueError(
+            f"Insufficient model weather elements ({model_element_count}/{len(WEATHER_MODEL_CANDIDATE_ELEMENTS)}) for location: {location_name}"
+        )
+
+
+def extract_available_element_names(station_payload):
+    """Extract element names available in one station payload."""
+    names = set()
+    for item in station_payload.get('weatherElement', []):
+        name = item.get('elementName')
+        if name:
+            names.add(name)
+    return names
+
+
+def get_display_weather_value(df, column, default='--'):
+    """Read one display value safely from the latest-weather DataFrame.
+
+    `column` can be a string or a tuple/list of fallback names.
+    """
+    column_candidates = column if isinstance(column, (list, tuple)) else [column]
+    for candidate in column_candidates:
+        if candidate in df.columns:
+            value = df.at[0, candidate]
+            if value not in (None, '', 'None'):
+                return value
+    return default
+
+
+def parse_weather_element_value(raw_element_value):
+    """Normalize weather element value from old/new CWA payload shapes into a usable scalar value."""
+    if raw_element_value is None:
+        return None
+
+    # Newer payloads may wrap value into time-series lists; pick the newest non-empty item.
+    if isinstance(raw_element_value, list):
+        for item in reversed(raw_element_value):
+            if isinstance(item, dict):
+                for key in ('value', 'elementValue', 'v'):
+                    if key in item and item[key] not in (None, ''):
+                        return item[key]
+            elif item not in (None, ''):
+                return item
+        return None
+
+    if isinstance(raw_element_value, dict):
+        for key in ('value', 'elementValue', 'v'):
+            if key in raw_element_value and raw_element_value[key] not in (None, ''):
+                return raw_element_value[key]
+        return None
+
+    return raw_element_value
 
 # def kNN_imputation(df):
 #     # kNN補值，若沒有NA則

@@ -231,3 +231,118 @@ This repository uses **Apache-2.0** so that attribution is carried in redistribu
 # distributed on an "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
 ```
+
+
+## 使用你本機已訓練的 KNN / 模型檔（重點）
+
+如果你已經在電腦本地訓練好模型，這個專案不需要重新訓練，只要把路徑接上即可。
+
+1) 先準備三個 artifact（可放任意路徑）
+- `kNN_imputer.joblib`
+- `MMscaler.joblib`
+- `rf_model.joblib`
+
+2) 啟動前設定環境變數（用你自己的實際路徑）
+```bash
+export KNN_IMPUTER_PATH=/absolute/path/to/kNN_imputer.joblib
+export MINMAX_SCALER_PATH=/absolute/path/to/MMscaler.joblib
+export MODEL_PATH=/absolute/path/to/rf_model.joblib
+```
+
+3) 啟動 Flask app
+```bash
+python -m flask --app src.linebot_typhoon:app run --port 5000
+```
+
+> 初學者說明：
+> - `KNN_IMPUTER_PATH`：缺值補齊模型
+> - `MINMAX_SCALER_PATH`：把特徵縮放到訓練時相同範圍
+> - `MODEL_PATH`：最後輸出放假機率的分類模型
+> 三者順序不能亂，因為推論流程是：補值 → 合併特徵 → 縮放 → 預測。
+
+---
+
+## 手機 App 化（取代 LINE UI）的後端接口
+
+
+### 3) 手機端 UI（Flask 內建）
+
+如果你想先快速看到「手機風格畫面」，不用先寫 Flutter/React Native，
+啟動 Flask 後直接打開：
+
+```text
+http://localhost:5000/app/ui
+```
+
+這個頁面會：
+- 呼叫 `GET /app/locations` 載入測站下拉選單
+- 呼叫 `GET /app/predict?locationName=...` 顯示溫度、雨量、天氣、機率與建議
+
+> 初學者理解：
+> - 這是一個「可直接跑」的手機 UI 雛形（前端在 HTML/JS，後端在 Flask）。
+> - 等你之後改成原生手機 App，只要沿用同兩個 API 即可，邏輯不用重寫。
+
+
+目前已新增手機 app 可直接呼叫的 API。你可以用 Flutter / React Native / iOS / Android 直接打這兩個端點：
+
+### 1) 取得可選測站清單
+```http
+GET /app/locations
+```
+回傳範例：
+```json
+{
+  "ok": true,
+  "locations": ["臺北", "淡水", "高雄", "...省略..."]
+}
+```
+
+### 2) 取得某測站最新天氣 + 放假機率
+```http
+GET /app/predict?locationName=臺北
+```
+回傳範例：
+```json
+{
+  "ok": true,
+  "locationName": "臺北",
+  "weather": {
+    "temperature_c": "29.4",
+    "rainfall_mm": "0.0",
+    "description": "晴"
+  },
+  "dayoff_probability": 23.1,
+  "advice": "明天不太可能放颱風假哦！"
+}
+```
+
+> 初學者說明：
+> - 手機 app 只要負責「選地點 + 顯示 JSON」。
+> - 預測邏輯留在後端（Flask），這樣模型不會暴露在手機端，也比較好維護。
+> - 你可以先做最小 UI：一個下拉選單 + 一個查詢按鈕 + 三個文字欄位（溫度/雨量/結果）。
+
+
+### 4) 我完全沒做過手機 App，直接用現成 Flutter 範本
+
+已提供完整範本在 `mobile_app_flutter/`，你可以直接跑起來。
+
+快速步驟：
+
+```bash
+cd mobile_app_flutter
+flutter pub get
+flutter run --dart-define=API_BASE_URL=http://10.0.2.2:5000
+```
+
+詳細說明請看：`mobile_app_flutter/README.md`。
+
+
+## 新 repo 上線清單
+
+已提供完整上線清單文件：`NEW_REPO_LAUNCH_CHECKLIST.md`。
+
+內容包含：
+- repo 名稱建議
+- README 首頁模板
+- 第一版 tag 命名（SemVer）
+- 發佈順序與 release note 範本

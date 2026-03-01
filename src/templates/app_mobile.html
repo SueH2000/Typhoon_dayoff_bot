@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>颱風假預測 App</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #1e293b;
+      --primary: #38bdf8;
+      --text: #e2e8f0;
+      --muted: #94a3b8;
+      --ok: #22c55e;
+      --warn: #f59e0b;
+      --danger: #ef4444;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      background: linear-gradient(180deg, #0f172a 0%, #1e293b 100%);
+      color: var(--text);
+      min-height: 100vh;
+      padding: 18px;
+    }
+    .container { max-width: 480px; margin: 0 auto; }
+    .title { font-size: 1.3rem; font-weight: 700; margin: 8px 0 4px; }
+    .subtitle { color: var(--muted); font-size: .92rem; margin-bottom: 16px; }
+    .card {
+      background: rgba(30, 41, 59, 0.9);
+      border: 1px solid rgba(148, 163, 184, .2);
+      border-radius: 16px;
+      padding: 14px;
+      margin-bottom: 12px;
+      backdrop-filter: blur(4px);
+    }
+    label { display:block; margin: 6px 0; color: var(--muted); font-size: .9rem; }
+    select, button {
+      width: 100%;
+      border-radius: 10px;
+      border: 1px solid rgba(148, 163, 184, .3);
+      background: #0b1220;
+      color: var(--text);
+      padding: 12px;
+      font-size: 1rem;
+    }
+    button {
+      margin-top: 10px;
+      background: var(--primary);
+      color: #082f49;
+      font-weight: 700;
+      border: none;
+    }
+    .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .item { background: rgba(15,23,42,.7); border-radius: 10px; padding: 10px; }
+    .item .k { color: var(--muted); font-size: .78rem; }
+    .item .v { font-size: 1.12rem; font-weight: 700; margin-top: 4px; }
+    .advice {
+      margin-top: 12px;
+      border-left: 4px solid var(--warn);
+      background: rgba(245, 158, 11, .12);
+      border-radius: 8px;
+      padding: 10px;
+      font-size: .95rem;
+      line-height: 1.45;
+    }
+    .status { margin-top: 10px; font-size: .88rem; color: var(--muted); }
+    .error { color: var(--danger); }
+    .ok { color: var(--ok); }
+  </style>
+</head>
+<body>
+  <main class="container">
+    <h1 class="title">颱風假預測手機版</h1>
+    <p class="subtitle">先選測站，再查詢「最新天氣 + 明日放假機率」。</p>
+
+    <section class="card">
+      <label for="location">測站</label>
+      <select id="location"></select>
+      <button id="predictBtn">立即查詢</button>
+      <div class="status" id="status">載入中...</div>
+    </section>
+
+    <section class="card" id="resultCard" hidden>
+      <div class="grid">
+        <div class="item">
+          <div class="k">目前氣溫</div>
+          <div class="v" id="temp">--</div>
+        </div>
+        <div class="item">
+          <div class="k">累積雨量</div>
+          <div class="v" id="rain">--</div>
+        </div>
+        <div class="item">
+          <div class="k">天氣描述</div>
+          <div class="v" id="weather">--</div>
+        </div>
+        <div class="item">
+          <div class="k">放假機率</div>
+          <div class="v" id="proba">--</div>
+        </div>
+      </div>
+      <div class="advice" id="advice">--</div>
+    </section>
+  </main>
+
+  <script>
+    const locationEl = document.getElementById('location');
+    const statusEl = document.getElementById('status');
+    const resultCard = document.getElementById('resultCard');
+
+    async function loadLocations() {
+      statusEl.textContent = '載入測站清單中...';
+      const resp = await fetch('/app/locations');
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || '無法取得測站清單');
+
+      locationEl.innerHTML = data.locations
+        .map(loc => `<option value="${loc}">${loc}</option>`)
+        .join('');
+      statusEl.textContent = `已載入 ${data.locations.length} 個測站`; 
+      statusEl.className = 'status ok';
+    }
+
+    async function predict() {
+      const locationName = locationEl.value;
+      if (!locationName) return;
+
+      statusEl.textContent = `查詢 ${locationName} 中...`;
+      statusEl.className = 'status';
+
+      const resp = await fetch(`/app/predict?locationName=${encodeURIComponent(locationName)}`);
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || '查詢失敗');
+
+      document.getElementById('temp').textContent = `${data.weather.temperature_c}°C`;
+      document.getElementById('rain').textContent = `${data.weather.rainfall_mm} mm`;
+      document.getElementById('weather').textContent = data.weather.description;
+      document.getElementById('proba').textContent = `${data.dayoff_probability}%`;
+      document.getElementById('advice').textContent = data.advice;
+      resultCard.hidden = false;
+
+      statusEl.textContent = '查詢成功';
+      statusEl.className = 'status ok';
+    }
+
+    document.getElementById('predictBtn').addEventListener('click', async () => {
+      try {
+        await predict();
+      } catch (err) {
+        statusEl.textContent = err.message;
+        statusEl.className = 'status error';
+      }
+    });
+
+    (async () => {
+      try {
+        await loadLocations();
+      } catch (err) {
+        statusEl.textContent = err.message;
+        statusEl.className = 'status error';
+      }
+    })();
+  </script>
+</body>
+</html>
